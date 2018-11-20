@@ -1,0 +1,65 @@
+# Settings for isync, a program to syncronise IMAP mailboxes
+# The remote for each account is a server somewhere, and the local is a folder
+# in ~/.mail
+# Syncronise everything with `mbsync -a`
+
+
+########################################
+# Default settings
+# Applied to all channels
+########################################
+Create Slave
+Expunge Both
+SyncState *
+
+########################################
+# WORK
+########################################
+IMAPAccount work
+Host outlook.office365.com
+User alex.ragone@ezyvet.com
+PassCmd "gpg2 -q --for-your-eyes-only --no-tty -d /home/ragone/.doom.d/mu4e/.mbsyncpass.gpg"
+Port 993
+SSLType IMAPS
+AuthMechs *
+PipelineDepth 1
+
+# Remote storage (where the mail is retrieved from)
+IMAPStore work-remote
+Account work
+
+# Local storage (where the mail is retrieved to)
+MaildirStore work-local
+Path /home/ragone/.mail/ezyvet/
+Inbox /home/ragone/.mail/ezyvet/Inbox
+SubFolders Verbatim
+
+Channel work-inbox
+Master :work-remote:INBOX
+Slave :work-local:Inbox
+
+Channel work-drafts
+Master :work-remote:Drafts
+Slave :work-local:Drafts
+
+Channel work-sent
+Master :work-remote:"Sent Items"
+Slave :work-local:Sent
+
+Channel work-trash
+Master :work-remote:"Deleted Items"
+Slave :work-local:Trash
+
+Channel work-folders
+Master :work-remote:
+Slave :work-local:
+# All other folders, except those already defined above and special Outlook folders like Tasks
+Patterns * !INBOX* !Archive !Calendar* !Clutter !"Infected Items" !"Junk Email" !"RSS Subscriptions" !"Sync Issues*" !Contacts* !"Conversation History" !"Deleted Items*" !Drafts !Journal !"Junk E-Mail" !Notes !Outbox !Sent* !Spam !Tasks !Trash
+
+# Group the channels, so that all channels can be sync'd with `mbsync work`
+Group work
+Channel work-inbox
+Channel work-drafts
+Channel work-sent
+Channel work-trash
+Channel work-folders

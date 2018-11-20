@@ -1,0 +1,715 @@
+* Configuration
+
+#+BEGIN_SRC emacs-lisp
+(require 'tldr)
+(require 'sx)
+(require 'js-doc)
+(require 'cl)
+(require 'request)
+(require 'ov)
+(require 'ox-clip)
+(require 'hackernews)
+(require 'vagrant-tramp)
+(require 'exec-path-from-shell)
+#+END_SRC
+
+** Password Store
+
+Since `password-store` uses the environment variable and I like to put mine in
+Dropbox, let's add that.
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'exec-path-from-shell-variables "PASSWORD_STORE_DIR")
+#+END_SRC
+
+Create a function to easily get the password from the `authinfo.gpg` file.
+#+BEGIN_SRC emacs-lisp
+(defun ragone/fetch-password (&rest params)
+  (require 'auth-source)
+  (let ((match (car (apply 'auth-source-search params))))
+    (if match
+        (let ((secret (plist-get match :secret)))
+          (if (functionp secret)
+              (funcall secret)
+            secret))
+      (error "Password not found for %S" params))))
+#+END_SRC
+
+** Atomic Chrome
+
+Start the Atomic Chrome Server for the [[https://chrome.google.com/webstore/detail/atomic-chrome/lhaoghhllmiaaagaffababmkdllgfcmc?hl=en][Atomic Chrome]]
+#+BEGIN_SRC emacs-lisp
+(require 'atomic-chrome)
+(atomic-chrome-start-server)
+#+END_SRC
+
+** Bindings
+
+Make it easy to set the category for TODOs in the agenda.
+#+BEGIN_SRC emacs-lisp
+(after! org-agenda
+  (map! :map org-agenda-mode-map
+        "C-c C-c" 'ragone/agenda-set-category))
+
+#+END_SRC
+
+Create some keybinding for the dashboard and easy access to the most used "apps"
+#+BEGIN_SRC emacs-lisp
+(map!
+ "<home>" '+doom-dashboard/open
+ :n "f" 'evil-avy-goto-char-timer
+ :leader
+ :desc "RSS" :n "ar" '=rss
+ :desc "IRC" :n "ai" '=irc
+ :desc "Passwords" :n "ap" 'pass
+ :desc "Notes" :n "ad" 'ragone/deft-or-close
+ :desc "Email" :n "ae" '=email
+ :desc "Agenda" :n "aa" 'ragone/agenda)
+#+END_SRC
+
+** Ledger
+
+Setup some default ledger reports to quickly access my budgets etc.
+#+BEGIN_SRC emacs-lisp
+(setq ledger-clear-whole-transactions t
+      ledger-reconcile-default-commodity "NZD"
+      ledger-reports
+      '(("account statement" "%(binary) reg --real [[ledger-mode-flags]] -f %(ledger-file) ^%(account)")
+        ("balance sheet" "%(binary) --real [[ledger-mode-flags]] -f %(ledger-file) bal ^assets ^liabilities ^equity")
+        ("budget" "%(binary) --empty -S -T [[ledger-mode-flags]] -f %(ledger-file) bal ^assets:bank ^assets:receivables ^assets:cash ^assets:budget")
+        ("budget goals" "%(binary) --empty -S -T [[ledger-mode-flags]] -f %(ledger-file) bal ^assets:bank ^assets:receivables ^assets:cash ^assets:'budget goals'")
+        ("budget obligations" "%(binary) --empty -S -T [[ledger-mode-flags]] -f %(ledger-file) bal ^assets:bank ^assets:receivables ^assets:cash ^assets:'budget obligations'")
+        ("budget debts" "%(binary) --empty -S -T [[ledger-mode-flags]] -f %(ledger-file) bal ^assets:bank ^assets:receivables ^assets:cash ^assets:'budget debts'")
+        ("cleared" "%(binary) cleared [[ledger-mode-flags]] -f %(ledger-file)")
+        ("equity" "%(binary) --real [[ledger-mode-flags]] -f %(ledger-file) equity")
+        ("income statement" "%(binary) --invert --real -S -T [[ledger-mode-flags]] -f %(ledger-file) bal ^income ^expenses -p \"this month\""))
+      ledger-report-use-header-line nil)
+#+END_SRC
+
+** Deft
+
+Deft is for note keeping. I choose to use only file titles without a summary.
+#+BEGIN_SRC emacs-lisp
+(require 'deft)
+(setq deft-directory "~/Dropbox/org"
+      deft-recursive t
+      deft-strip-summary-regexp ".*"
+      deft-filter-only-filenames t
+      deft-note-mode nil ;Used for tracking the state of deft
+      deft-extensions '("org" "md" "txt"))
+#+END_SRC
+
+** Dired
+
+Show file sizes in human readable numbers.
+#+BEGIN_SRC emacs-lisp
+(setq dired-listing-switches "-alh"
+      dired-k-human-readable t)
+#+END_SRC
+
+** Doom Tweaks
+*** Dashboard
+
+I wanted to show a random quote on my dashboard when I start emacs.
+#+BEGIN_SRC emacs-lisp
+(defvar ragone-quotes-file "~/.doom.d/quotes.txt"
+  "File to look for quotes")
+
+(defvar ragone-quotes-file-seperators "%"
+  "Delimiter for seperating the line in `ragone-quotes-file'")
+
+(defvar ragone-quotes-author-regex "^\s*--"
+  "Regex which indicates the author. Anything after this will be changed to face.")
+
+(defun ragone/get-quote (&optional nth)
+  (let* ((quotes (split-string
+                  (with-temp-buffer
+                    (insert-file-contents ragone-quotes-file)
+                    (buffer-substring-no-properties
+                     (point-min)
+                     (point-max)))
+                  ragone-quotes-file-seperators t))
+         (selected-quote (nth (or nth
+                                  (random (length quotes)))
+                              quotes)))
+    (put-text-property (string-match ragone-quotes-author-regex selected-quote)
+                       (length selected-quote) 'face '(:foreground "#665c54") selected-quote)
+    selected-quote))
+
+(defun ragone/random-quote ()
+  (ragone/get-quote))
+
+(defun doom-dashboard-widget-footer ()
+  (insert "\n" (ragone/random-quote) "\n"))
+#+END_SRC
+
+Setup Doom dashboard
+#+BEGIN_SRC emacs-lisp
+(setq +doom-dashboard-banner-padding '(0 . 0)
+      +doom-dashboard-menu-sections
+      '(("Agenda"
+         :icon (all-the-icons-octicon "calendar" :face 'font-lock-keyword-face)
+         :when (fboundp 'org-agenda)
+         :face (:inherit (font-lock-keyword-face bold))
+         :action ragone/agenda)
+        ("Email"
+         :icon (all-the-icons-octicon "mail" :face 'font-lock-keyword-face)
+         :action =email)
+        ("RSS"
+         :icon (all-the-icons-octicon "rss" :face 'font-lock-keyword-face)
+         :action =rss)
+        ("Notes"
+         :icon (all-the-icons-octicon "light-bulb" :face 'font-lock-keyword-face)
+         :action ragone/deft-or-close)
+        ("Passwords"
+         :icon (all-the-icons-octicon "lock" :face 'font-lock-keyword-face)
+         :action pass)
+        ("IRC"
+         :icon (all-the-icons-faicon "comments" :face 'font-lock-keyword-face)
+         :action =irc)
+        ("Recent"
+         :icon (all-the-icons-octicon "file-text" :face 'font-lock-keyword-face)
+         :action recentf-open-files)
+        ("Projects"
+         :icon (all-the-icons-octicon "briefcase" :face 'font-lock-keyword-face)
+         :action projectile-switch-project)
+        ("Bookmarks"
+         :icon (all-the-icons-octicon "bookmark" :face 'font-lock-keyword-face)
+         :action bookmark-jump)
+        ("Config"
+         :icon (all-the-icons-octicon "tools" :face 'font-lock-keyword-face)
+         :when (file-directory-p doom-private-dir)
+         :action +default/find-in-config))
+      +doom-dashboard-banner-file "emacs.png"
+      +doom-dashboard-banner-dir "/home/ragone/.doom.d/"
+      +doom-dashboard-functions
+      '(doom-dashboard-widget-banner
+        doom-dashboard-widget-shortmenu
+        doom-dashboard-widget-footer))
+#+END_SRC
+
+*** Popups
+
+#+BEGIN_SRC emacs-lisp
+(set-popup-rules!
+  '(("^\\*Warnings" :size 0.2 :ttl 3)))
+(after! org
+  (set-popup-rules!
+    '(("^\\*Org Agenda" :side right :size 0.5 :select t :ttl nil))))
+#+END_SRC
+
+Fix issue with agenda fringes causing window-text-width to be incorrect
+#+BEGIN_SRC emacs-lisp
+(add-hook! 'org-agenda-mode-hook
+  (set-window-fringes nil nil nil fringes-outside-margins))
+#+END_SRC
+
+** Elfeed
+
+For RSS I use Elfeed. To fix images not rendering with spaces, I have removed
+the line-spacing in `elfeed-show-mode`.
+#+BEGIN_SRC emacs-lisp
+(add-hook! 'elfeed-show-mode-hook
+  (setq line-spacing 0))
+#+END_SRC
+
+** ezyVet
+
+Load the ezyVet databases.
+See `sql-connection-alist` for specifying the databases credentials.
+#+BEGIN_SRC emacs-lisp
+(load-file "~/.doom.d/ezyvetdb.el")
+#+END_SRC
+
+Reload databases
+#+BEGIN_SRC emacs-lisp
+(defun ragone/update-databases ()
+  (interactive)
+  (let ((default-directory "~/app-server/cookbooks/local/server/files/default/dev-scripts"))
+    (shell-command "php elimport.php > ~/.doom.d/ezyvetdb.el")
+    (load-file "~/.doom.d/ezyvetdb.el")))
+#+END_SRC
+
+** Functions
+
+#+BEGIN_SRC emacs-lisp
+(defun ragone/yank-image ()
+  "Yank the image at point to the X11 clipboard as image/png."
+  (interactive)
+  (let ((image (get-text-property (point) 'display)))
+    (if (eq (car image) 'image)
+        (let ((data (plist-get (cdr image) ':data))
+              (file (plist-get (cdr image) ':file)))
+          (cond (data
+                 (with-temp-buffer
+                   (insert data)
+                   (call-shell-region
+                    (point-min) (point-max)
+                    "xclip -i -selection clipboard -t image/png")))
+                (file
+                 (if (file-exists-p file)
+                     (start-process
+                      "xclip-proc" nil "xclip"
+                      "-i" "-selection" "clipboard" "-t" "image/png"
+                      "-quiet" (file-truename file))))
+                (t
+                 (message "The image seems to be malformed."))))
+      (message "Point is not at an image."))))
+
+(defun ragone/position-to-kill-ring ()
+  "Copy to the kill ring a string in the format \"file-name:line-number\"
+for the current buffer's file name, and the line number at point."
+  (interactive)
+  (kill-new
+   (format "%s:%d" (buffer-file-name) (save-restriction
+                                        (widen) (line-number-at-pos)))))
+#+END_SRC
+
+Quickly copy a htmlized buffer to the clipboard
+#+BEGIN_SRC emacs-lisp
+(defun ragone/htmlize-to-image ()
+  (interactive)
+  (let ((content (with-current-buffer (htmlize-buffer)
+                     (buffer-string))))
+    (with-temp-buffer
+      (insert content)
+      (call-shell-region
+       (point-min) (point-max)
+       "wkhtmltoimage -f png - - | xclip -i -selection clipboard -t image/png"))))
+#+END_SRC
+
+Easily create a merge request using GitLabs API.
+#+BEGIN_SRC emacs-lisp
+(defun ragone/create-merge-request ()
+  "Visit the current branch's MR on Gitlab."
+  (interactive)
+  (let* ((loader (make-progress-reporter "Creating"))
+         (title (shell-command-to-string "git log -1 --pretty=%s"))
+         (description (shell-command-to-string "git log -1 --pretty=%b"))
+         (source-branch (magit-get-current-branch))
+         (remove-source-branch (y-or-n-p "Remove source branch?"))
+         (target-branch (magit-read-branch "Target Branch?"))
+         (urls '(("ezyVet" . "https://gitlab.com/api/v4/projects/ezyvet%2Fezyvet/merge_requests")
+                 ("EPIC Frontend" . "https://gitlab.com/api/v4/projects/ezyvet%2Fepic%2Ffrontend/merge_requests")
+                 ("EPIC Backend" . "https://gitlab.com/api/v4/projects/ezyvet%2Fepic%2Fbackend/merge_requests")))
+         (urlkey (completing-read "Select URL" '("ezyVet" "EPIC Frontend" "EPIC Backend")))
+         (loading t)
+         (data `(("title" . ,title)
+                 ("description" . ,description)
+                 ("source_branch" . ,source-branch)
+                 ("target_branch" . ,target-branch))))
+    (if remove-source-branch
+        (add-to-list 'data '("remove_source_branch" . "true")))
+
+    (request
+     (cdr (assoc urlkey urls))
+     :type "POST"
+     :parser 'json-read
+     :headers '(("PRIVATE-TOKEN" . (ragone/fetch-password :host "api.gitlab.com")))
+     :data data
+     :error (cl-function
+                (lambda (&key data &allow-other-keys)
+                  (print! (red "Failed Creating Merge Request"))))
+     :complete (cl-function
+                (lambda (&key data &allow-other-keys)
+                  (kill-new (cdr (assoc 'web_url data)))
+                  (let ((loading nil)))
+                  (progress-reporter-done loader)
+                  (print! (green "Merge Request Created!")))))
+    (dotimes (k 100)
+      (sit-for 0.01)
+      (progress-reporter-update loader k))))
+#+END_SRC
+
+A couple of functions to open/close the deft buffer with the same keybinding.
+#+BEGIN_SRC emacs-lisp
+(defun ragone/kill-all-deft-buffers ()
+  (interactive)
+  (save-excursion
+    (let ((count 0))
+      (dolist (buffer (buffer-list))
+        (set-buffer buffer)
+        (when (not (eq nil deft-note-mode))
+          (setq count (1+ count))
+          (kill-buffer buffer))))))
+
+(defun ragone/deft-or-close ()
+  (interactive)
+  (if (or (eq major-mode 'deft-mode)
+          (not (eq nil deft-note-mode)))
+      (progn (ragone/kill-all-deft-buffers) (kill-buffer "*Deft*"))
+    (deft)))
+
+(defun ragone/agenda ()
+  "My org agenda."
+  (interactive)
+  (org-agenda nil "n"))
+
+#+END_SRC
+
+Convert org timeclock to HH:MM notation
+#+BEGIN_SRC emacs-lisp
+(defun ragone/time--to-seconds (timestr)
+  "Convert HH:MM notation to seconds"
+  (let* ((matchindex (string-match "\\([0-9]+\\):\\([0-9]+\\)" timestr))
+         (hours (string-to-number (match-string 1 timestr)))
+         (minutes (string-to-number (match-string 2 timestr))))
+    (+ (* 60 (* hours 60)) (* minutes 60))))
+
+(defun ragone/time-to-hours (timestr)
+  "Express time as hours in decimal notation"
+  (format "%.3f" (/ (ragone/time--to-seconds timestr) 3600.0)))
+
+(defun ragone/agenda-set-category ()
+  "Set the category of the agenda item"
+  (interactive)
+  (let* ((hdmarker (or (org-get-at-bol 'org-hd-marker)
+                    (org-agenda-error)))
+         (buffer (marker-buffer hdmarker))
+         (pos (marker-position hdmarker))
+         (inhibit-read-only t)
+         newhead)
+    (org-with-remote-undo buffer
+        (with-current-buffer buffer
+            (widen)
+            (goto-char pos)
+            (org-show-context 'agenda)
+            (org-set-property "CATEGORY" nil)))
+    (org-agenda-redo)))
+
+(defun ragone/sql-connect ()
+  "Connect a mssql database in `sql-connection-alist'
+  with `sql-connect', user should set `sql-connection-alist'
+  before run this command."
+  (interactive)
+  (setq sql-product 'mysql)
+  (let ((connect-name
+         (completing-read "Which database do you want to connect to: "
+                          (mapcar #'(lambda (x)
+                                      (symbol-name (car x)))
+                                  sql-connection-alist))))
+    (sql-connect connect-name)))
+#+END_SRC
+
+Compare my init file to doom init file
+#+BEGIN_SRC emacs-lisp
+(defun ragone/ediff-dotfile-and-template ()
+  "ediff the current `dotfile' with the template"
+  (interactive)
+  (ediff-files
+   "~/.doom.d/init.el"
+   "~/.emacs.d/init.example.el"))
+#+END_SRC
+
+** Htmlize
+
+#+BEGIN_SRC emacs-lisp
+(setq htmlize-face-overrides
+      '(hl-line-face (:foreground "dark-green" :background "yellow")))
+#+END_SRC
+
+** IRC
+
+Setup IRC.
+#+BEGIN_SRC emacs-lisp
+(set-irc-server! "chat.freenode.net"
+                 `(:tls t
+                   :nick "ragoneio"
+                   :port 6697
+                   :sasl-username "ragoneio"
+                   :sasl-password (lambda (server)
+                                    (ragone/fetch-password :host "chat.freenode.net"))
+                   :channels ("#dirty-devs")))
+#+END_SRC
+
+** Magit
+
+Add my own function to the Magit popup.
+#+BEGIN_SRC emacs-lisp
+(after! magit
+  (magit-define-popup-action 'magit-dispatch-popup
+    ?p "create merge request"
+     'ragone/create-merge-request))
+#+END_SRC
+
+** mu4e
+
+Setup work email account and specific settings associated with this account.
+#+BEGIN_SRC emacs-lisp
+(set-email-account! "alex.ragone@ezyvet.com"
+                    '((mu4e-sent-folder                 . "/ezyvet/Sent")
+                      (mu4e-trash-folder                . "/ezyvet/Trash")
+                      (mu4e-drafts-folder               . "/ezyvet/Drafts")
+                      (user-full-name                   . "Alex Ragone")
+                      (user-mail-address                . "alex.ragone@ezyvet.com")
+                      (smtpmail-smtp-user               . "alex.ragone@ezyvet.com")
+                      (smtpmail-smtp-server             . "smtp.office365.com")
+                      (smtpmail-smtp-service            .  587)
+                      (smtpmail-stream-type             . starttls)
+                      (message-cite-style               . 'message-cite-style-outlook)
+                      (mu4e-get-mail-command            . "mbsync -c ~/.doom.d/mu4e/.mbsyncrc work"))
+                    t)
+#+END_SRC
+
+Outlook style citation.
+#+BEGIN_SRC emacs-lisp
+(setq message-yank-prefix ""
+      message-yank-cited-prefix ""
+      message-yank-empty-prefix ""
+      message-citation-line-format "\n\n-----------------------\nOn %a, %b %d %Y, %N wrote:\n"
+      message-citation-line-function 'message-insert-formatted-citation-line
+      mu4e-update-interval 300) ; every 5 minutes
+#+END_SRC
+
+Make it easy to `org-capture` an email and mark it for trash.
+#+BEGIN_SRC emacs-lisp
+
+(defun ragone/capture-mail (buffer)
+  "Captures the email"
+  (org-store-link t)
+  (org-capture-string nil "e")
+  (org-capture-finalize)
+  (mu4e-view-mark-for-trash))
+
+(after! mu4e
+    (add-to-list 'mu4e-headers-actions '("todo" . ragone/capture-mail))
+    (add-to-list 'mu4e-view-actions '("todo" . ragone/capture-mail)))
+
+(defun no-auto-fill ()
+  "Turn off auto-fill-mode."
+  (auto-fill-mode -1))
+
+(defun ragone/org-mu4e-compose ()
+    (org-mu4e-compose-org-mode)
+    (no-auto-fill))
+
+(def-package! org-mu4e
+  :hook ((org-mode mu4e-compose) . ragone/org-mu4e-compose))
+
+(after! mu4e
+
+  (setq mu4e-index-cleanup t
+        mu4e-sent-messages-behavior 'sent
+        mu4e-html2text-command "w3m -dump -T text/html")
+
+  (add-to-list 'mu4e-bookmarks
+               (make-mu4e-bookmark
+                :name  "External"
+                :query "NOT from:ezyvet.com"
+                :key ?e))
+
+  (add-to-list 'mu4e-bookmarks
+               (make-mu4e-bookmark
+                :name  "Internal"
+                :query "from:ezyvet.com NOT from:alex.ragone@ezyvet.com NOT from:alex@ezyvet.com"
+                :key ?i))
+
+  (add-to-list 'mu4e-view-actions '("ViewInBrowser" . mu4e-action-view-in-browser) t)
+
+  (setq mu4e-headers-include-related nil
+        mu4e-headers-attach-mark '("a" . "@")
+        mu4e-confirm-quit nil
+        mu4e-headers-fields
+        '((:flags      . 4)
+          (:human-date . 12)
+          (:from       . 25)
+          (:subject    . nil))))
+
+#+END_SRC
+
+A little haxy here as I am overriding the function to insert my own signature in
+style of outlook.
+TODO: Need to make it work with Gmail.
+#+BEGIN_SRC emacs-lisp
+(eval-after-load "org-mu4e"
+  '(defun org~mu4e-mime-multipart (plain html &optional images)
+     "Create a multipart/alternative with text/plain and text/html alternatives.
+If the html portion of the message includes images, wrap the html
+and images in a multipart/related part."
+     (let* ((signature-raw (with-temp-buffer
+                             (insert-file-contents "~/.doom.d/mu4e/signature-unleash.html")
+                             (buffer-string)))
+            (tmp-file (make-temp-name
+                       (expand-file-name "mail"
+                                         temporary-file-directory)))
+            (citation-index (string-match "^-----------------------$" plain))
+            (body (substring plain 0 citation-index))
+            (citation (substring plain citation-index (length plain)))
+            (html-content-body (org-export-string-as
+                                 (concat "#+OPTIONS: toc:nil num:nil\n" body) 'html t))
+            (html-content-citation (org-export-string-as
+                                     (concat "#+OPTIONS: toc:nil num:nil\n" citation) 'html t))
+            (signature-html-and-images
+             (org~mu4e-mime-replace-images
+              signature-raw
+              tmp-file))
+            (signature-html-images (cdr signature-html-and-images))
+            (signature-html (car signature-html-and-images))
+            (signature-images (mapconcat 'identity signature-html-images "\n")))
+       (concat "<#multipart type=alternative><#part type=text/plain>"
+               plain
+               "<#multipart type=related>"
+               "<#part type=text/html>"
+               "<div style=\"font-size: 11.0pt; font-family: 'Calibri',sans-serif;\">"
+               html-content-body
+               images
+               "</div>"
+               signature-html
+               (if citation-index
+                 html-content-citation)
+               signature-images
+               "<#/multipart>\n"
+               "<#/multipart>\n"))))
+
+(defun ragone/mu4e-delete-citation ()
+  (delete-region (point-min) (point-max)))
+;; (add-hook 'mail-citation-hook #'ragone/mu4e-delete-citation)
+#+END_SRC
+
+** Org
+
+#+BEGIN_SRC emacs-lisp
+(require 'org-habit)
+(require 'org-clock-convenience)
+(require 'org-jira)
+
+(setq jiralib-url "https://ezyvet.atlassian.net"
+      org-jira-default-jql
+      "(reporter = currentUser() OR assignee = currentUser()) AND status != Backlog AND resolution = unresolved ORDER BY
+  priority DESC, created ASC")
+
+(after! org
+  (setq
+   org-link-file-path-type 'relative
+   org-src-fontify-natively t
+   org-agenda-show-future-repeats 'next
+   org-agenda-skip-timestamp-if-done t
+   org-agenda-skip-deadline-if-done t
+   org-agenda-block-separator ?\u2015
+   org-confirm-babel-evaluate nil
+   org-agenda-span 5
+   org-agenda-start-day nil
+   org-directory "~/Dropbox/org"
+   +org-capture-todo-file "~/Dropbox/org/todo.org"
+   +org-capture-notes-file "~/Dropbox/org/notes.org"
+   org-agenda-files (list org-directory)
+   org-refile-allow-creating-parent-nodes 'confirm
+   org-todo-keywords
+   '((sequence "TODO(t)" "NEXT(n)" "|" "DONE(d)")
+     (sequence "NOTE(N)" "|" "MEETING(M)")
+     (sequence "WAITING(w)" "DELEGATED(e)" "LATER(l)" "|" "CANCELLED(c)"))
+   org-refile-targets
+   `((nil :maxlevel . 1)
+     (org-agenda-files :maxlevel . 1))
+   org-todo-keyword-faces
+   `(("WAITING" :foreground "#fabd2f" :weight bold)
+     ("DELEGATED" :foreground "#fabd2f" :weight bold)
+     ("NOTE" :foreground "#83a598" :weight bold)
+     ("MEETING" :foreground "#83a598" :weight bold)
+     ("LATER" :foreground "#83a598" :weight bold)
+     ("NEXT" :foreground "#b8bb26" :weight bold))
+   org-capture-templates
+   '(("t" "Todo" entry
+      (file+headline +org-capture-todo-file "Inbox")
+      "* TODO %?" :prepend t :kill-buffer t)
+     ("n" "Next" entry
+      (file+headline +org-capture-todo-file "Inbox")
+      "* NEXT %?" :prepend t :kill-buffer t)
+     ("w" "Waiting" entry
+      (file+headline +org-capture-todo-file "Inbox")
+      "* WAITING %?" :prepend t :kill-buffer t)
+     ("e" "Email" entry
+      (file+headline +org-capture-todo-file "Inbox")
+      "* %^{Type?|TODO|NEXT|WAITING|DELEGATED} %^{Content?} :email:\nSCHEDULED: %t\n%a" :prepend t :kill-buffer t)
+     ("m" "Meeting" entry
+      (file+headline +org-capture-todo-file "Inbox")
+      "* MEETING with %^{Who?}\n%^{Time?}T" :prepend t :kill-buffer t)
+     ("N" "Notes" entry
+      (file+headline +org-capture-notes-file "Inbox")
+      "* NOTE %u %?\n%i" :prepend t :kill-buffer t))
+   org-agenda-custom-commands
+   '(("n" "Agenda"
+      ((agenda "" nil)
+       (todo "NEXT"
+             ((org-agenda-overriding-header (concat (all-the-icons-faicon "bolt" :v-adjust 0.01) " Next Tasks"))
+              (org-agenda-sorting-strategy
+               '(priority-down category-up))))
+       (todo "TODO"
+             ((org-agenda-files '("~/Dropbox/org/todo.org"))
+              (org-agenda-overriding-header (concat (all-the-icons-faicon "tasks" :v-adjust 0.01) " Tasks"))))
+       (todo "WAITING|DELEGATED"
+             ((org-agenda-overriding-header (concat (all-the-icons-faicon "hourglass" :v-adjust 0.01) " Waiting/Delegated"))
+              (org-agenda-sorting-strategy '(todo-state-up))))
+       (todo "LATER"
+             ((org-agenda-overriding-header (concat (all-the-icons-faicon "thumb-tack" :v-adjust 0.01) " Later"))))
+       (todo "NOTE"
+             ((org-agenda-overriding-header (concat (all-the-icons-faicon "sticky-note" :v-adjust 0.01) " Notes")))))
+
+      nil))))
+#+END_SRC
+
+Setup some agenda keybindings.
+#+BEGIN_SRC emacs-lisp
+(defun ragone/org-agenda-mode-fn ()
+  (define-key org-agenda-mode-map
+    (kbd "<S-up>") #'org-clock-convenience-timestamp-up)
+  (define-key org-agenda-mode-map
+    (kbd "<S-down>") #'org-clock-convenience-timestamp-down))
+
+(add-hook 'org-agenda-mode-hook #'ragone/org-agenda-mode-fn)
+#+END_SRC
+
+** Paradox
+
+Fancy `package-install`.
+#+BEGIN_SRC emacs-lisp
+(require 'paradox)
+(paradox-enable)
+#+END_SRC
+
+** PHP
+
+Basic PHP setup.
+#+BEGIN_SRC emacs-lisp
+(require 'phpcbf)
+(require 'php-cs-fixer)
+
+(custom-set-variables
+ '(phpcbf-standard "PSR2"))
+
+(setq php-cs-fixer-rules-fixer-part-options
+      '("no_multiline_whitespace_before_semicolons"
+        "no_unused_imports"
+        "ordered_imports"
+        "concat_space")
+      php-cs-fixer-rules-level-part-options
+      '("@PSR2" "@Symfony"))
+#+END_SRC
+
+** Shell
+
+Use shell PATH.
+#+BEGIN_SRC emacs-lisp
+(setq exec-path-from-shell-arguments '("-i"))
+(exec-path-from-shell-initialize)
+#+END_SRC
+
+** Theme
+
+Setup theme. I like `gruvbox-dark-soft`.
+#+BEGIN_SRC emacs-lisp
+(setq doom-theme 'gruvbox-dark-soft
+      doom-big-font (font-spec :size 30 :family "DejaVu Sans Mono")
+      +doom-modeline-height 40
+      doom-font (font-spec :size 16 :weight 'light :family "Input Mono Nerd Font"))
+#+END_SRC
+
+Spice up the view of the agenda to easier differentiate between headers and
+todos.
+#+BEGIN_SRC emacs-lisp
+(add-hook! 'doom-load-theme-hook
+  (set-face-attribute 'org-agenda-structure nil :inherit 'default :height 1.50)
+  (set-face-attribute 'org-agenda-date-weekend nil :slant 'italic :height 1.00 :weight 'light)
+  (set-face-attribute 'org-agenda-calendar-event nil :foreground "#fabd2f")
+  (set-face-attribute 'org-agenda-date nil :foreground "#d5c4a1" :inherit 'default :height 1.25)
+  (set-face-attribute 'org-agenda-date-today nil :slant 'normal :weight 'bold :height 1.25))
+#+END_SRC
