@@ -265,16 +265,30 @@ for the current buffer's file name, and the line number at point."
 #+END_SRC
 
 Quickly copy a htmlized buffer to the clipboard
+Make sure to install `wkhtmltopdf` first.
 #+BEGIN_SRC emacs-lisp
+(defun ragone-htmlize-to-image (content)
+  (with-temp-buffer
+    (insert content)
+    (call-shell-region
+     (point-min) (point-max)
+     "wkhtmltoimage -f png - - | xclip -i -selection clipboard -t image/png")))
+
+(defun ragone-get-htmlized-content (start end)
+  (let ((background (face-attribute 'region :background)))
+    (set-face-background 'region "unspecified")
+    (let* ((htmlize-pre-style t)
+           (content (htmlize-region-for-paste start end)))
+      (set-face-background 'region background)
+      content)))
+
 (defun ragone/htmlize-to-image ()
   (interactive)
-  (let ((content (with-current-buffer (htmlize-buffer)
-                     (buffer-string))))
-    (with-temp-buffer
-      (insert content)
-      (call-shell-region
-       (point-min) (point-max)
-       "wkhtmltoimage -f png - - | xclip -i -selection clipboard -t image/png"))))
+  (let ((start (if (region-active-p)
+                   (region-beginning) (point-min)))
+        (end (if (region-active-p)
+                 (region-end) (point-max))))
+      (ragone-htmlize-to-image (ragone-get-htmlized-content start end))))
 #+END_SRC
 
 Easily create a merge request using GitLabs API.
