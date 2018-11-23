@@ -267,28 +267,33 @@ for the current buffer's file name, and the line number at point."
 Quickly copy a htmlized buffer to the clipboard
 Make sure to install `wkhtmltopdf` first.
 #+BEGIN_SRC emacs-lisp
-(defun ragone-htmlize-to-image (content)
+(defun ragone-htmlize-to-clipboard (html)
+  "Copy HTML to clipboard. "
   (with-temp-buffer
-    (insert content)
+    (insert html)
     (call-shell-region
      (point-min) (point-max)
      "wkhtmltoimage -f png - - | xclip -i -selection clipboard -t image/png")))
 
-(defun ragone-get-htmlized-content (start end)
-  (let ((background (face-attribute 'region :background)))
-    (set-face-background 'region "unspecified")
-    (let* ((htmlize-pre-style t)
-           (content (htmlize-region-for-paste start end)))
-      (set-face-background 'region background)
-      content)))
-
-(defun ragone/htmlize-to-image ()
+(defun ragone/htmlize ()
+  "Convert the htmlized region to an image and copy to clipboard."
   (interactive)
+  (run-hooks 'ragone-htmlize-before-hook)
   (let ((start (if (region-active-p)
                    (region-beginning) (point-min)))
         (end (if (region-active-p)
                  (region-end) (point-max))))
-      (ragone-htmlize-to-image (ragone-get-htmlized-content start end))))
+    (ragone-htmlize-to-clipboard
+     (htmlize-region-for-paste start end))))
+
+(add-hook! 'htmlize-before-hook
+  (setq region-background
+        (face-attribute 'region :background)
+        htmlize-pre-style t)
+  (set-face-background 'region "unspecified"))
+
+(add-hook! 'htmlize-after-hook
+  (set-face-background 'region region-background))
 #+END_SRC
 
 Easily create a merge request using GitLabs API.
@@ -412,13 +417,6 @@ Compare my init file to doom init file
   (ediff-files
    "~/.doom.d/init.el"
    "~/.emacs.d/init.example.el"))
-#+END_SRC
-
-** Htmlize
-
-#+BEGIN_SRC emacs-lisp
-(setq htmlize-face-overrides
-      '(hl-line-face (:foreground "dark-green" :background "yellow")))
 #+END_SRC
 
 ** IRC
