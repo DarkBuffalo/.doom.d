@@ -278,22 +278,17 @@ Make sure to install `wkhtmltopdf` first.
 (defun ragone/htmlize ()
   "Convert the htmlized region to an image and copy to clipboard."
   (interactive)
-  (run-hooks 'ragone-htmlize-before-hook)
-  (let ((start (if (region-active-p)
+  (let ((htmlize-pre-style t)
+        (region-background (face-attribute 'region :background))
+        (start (if (region-active-p)
                    (region-beginning) (point-min)))
         (end (if (region-active-p)
                  (region-end) (point-max))))
-    (ragone-htmlize-to-clipboard
-     (htmlize-region-for-paste start end))))
-
-(add-hook! 'htmlize-before-hook
-  (setq region-background
-        (face-attribute 'region :background)
-        htmlize-pre-style t)
-  (set-face-background 'region "unspecified"))
-
-(add-hook! 'htmlize-after-hook
-  (set-face-background 'region region-background))
+    (set-face-background 'region "unspecified")
+    (unwind-protect
+      (ragone-htmlize-to-clipboard
+       (htmlize-region-for-paste start end))
+      (set-face-background 'region region-background))))
 #+END_SRC
 
 Easily create a merge request using GitLabs API.
