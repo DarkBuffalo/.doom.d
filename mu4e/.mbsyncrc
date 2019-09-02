@@ -17,8 +17,8 @@ SyncState *
 ########################################
 IMAPAccount work
 Host outlook.office365.com
-User alex.ragone@ezyvet.com
-PassCmd "gpg2 -q --for-your-eyes-only --no-tty -d /home/ragone/.doom.d/mu4e/.mbsyncpass.gpg"
+User ara@planday.com
+PassCmd "gpg -q --for-your-eyes-only --no-tty -d /Users/ragone/.doom.d/mu4e/.mbsyncpass.gpg"
 Port 993
 SSLType IMAPS
 AuthMechs *
@@ -30,8 +30,8 @@ Account work
 
 # Local storage (where the mail is retrieved to)
 MaildirStore work-local
-Path /home/ragone/.mail/ezyvet/
-Inbox /home/ragone/.mail/ezyvet/Inbox
+Path /Users/ragone/.mail/planday/
+Inbox /Users/ragone/.mail/planday/Inbox
 SubFolders Verbatim
 
 Channel work-inbox
@@ -63,3 +63,42 @@ Channel work-drafts
 Channel work-sent
 Channel work-trash
 Channel work-folders
+
+########################################
+# GMAIL
+########################################
+IMAPAccount gmail
+Host imap.gmail.com
+User ragonedk@gmail.com
+PassCmd "gpg -q --for-your-eyes-only --no-tty -d /Users/ragone/.doom.d/mu4e/.gmailpass.gpg"
+Port 993
+AuthMechs LOGIN
+SSLType IMAPS
+
+# Remote storage (where the mail is retrieved from)
+IMAPStore gmail-remote
+Account gmail
+
+# Local storage (where the mail is retrieved to)
+MaildirStore gmail-local
+Path /Users/ragone/.mail/gmail/
+Inbox /Users/ragone/.mail/gmail/Inbox
+SubFolders Verbatim
+
+Channel gmail-inbox
+Master :gmail-remote:INBOX
+Slave :gmail-local:Inbox
+
+Channel gmail-sent
+Master :gmail-remote:"[Gmail]/Sent Mail"
+Slave :gmail-local:Sent
+
+Channel gmail-trash
+Master :gmail-remote:"[Gmail]/Trash"
+Slave :gmail-local:Trash
+
+# Group the channels, so that all channels can be sync'd with `mbsync gmail`
+Group gmail
+Channel gmail-inbox
+Channel gmail-sent
+Channel gmail-trash

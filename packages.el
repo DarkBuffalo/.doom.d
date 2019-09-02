@@ -21,6 +21,27 @@
 (package! org-mime)
 (package! vagrant-tramp)
 (package! gif-screencast)
+(package! terraform-mode)
+(package! excorporate) ; Exchange integration
+(package! nov) ; EPUB Reader
+(package! cargo)
+(package! ox-jira)
+(package! language-detection)
+(package! terminal-here)
+(package! expand-region)
+(package! xterm-color)
+(package! package-lint)
+(package! flycheck-package)
+(package! org-static-blog)
+(package! auto-complete)
+(package! github-theme)
+(package! magit-diff-flycheck)
+(package! deadgrep)
+(package! flycheck-posframe)
+(package! emojify)
+
+(package! evil-matchit :recipe (:fetcher github :repo "redguardtoo/evil-matchit" :commit "7d65b4167b1f0086c2b42b3aec805e47a0d355c4"))
+
 
 (provide 'packages)
 

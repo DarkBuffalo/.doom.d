@@ -1,6 +1,3 @@
-* Configuration
-
-#+BEGIN_SRC emacs-lisp
 (require 'tldr)
 (require 'sx)
 (require 'request)
@@ -26,17 +23,9 @@
 
 ;; Fix for PDF-tools on MacOS
 (setenv "PKG_CONFIG_PATH" "/usr/local/lib/pkgconfig:/usr/local/Cellar/libffi/3.2.1/lib/pkgconfig")
-#+END_SRC
 
-** Password Store
 
-Since `password-store` uses the environment variable and I like to put mine in
-Dropbox, let's add that.
-#+BEGIN_SRC emacs-lisp
-#+END_SRC
 
-Create a function to easily get the password from the `.authinfo.gpg` file.
-#+BEGIN_SRC emacs-lisp
 (defun ragone/fetch-password (&rest params)
   (require 'auth-source)
   (let ((match (car (apply 'auth-source-search params))))
@@ -46,28 +35,14 @@ Create a function to easily get the password from the `.authinfo.gpg` file.
               (funcall secret)
             secret))
       (error "Password not found for %S" params))))
-#+END_SRC
 
-** Atomic Chrome
-
-Start the Atomic Chrome Server for the [[https://chrome.google.com/webstore/detail/atomic-chrome/lhaoghhllmiaaagaffababmkdllgfcmc?hl=en][Atomic Chrome]]
-#+BEGIN_SRC emacs-lisp
 (require 'atomic-chrome)
 (atomic-chrome-start-server)
-#+END_SRC
 
-** Posframe
-
-#+BEGIN_SRC emacs-lisp
 (def-package! flycheck-posframe
   :after flycheck
   :config (add-hook 'flycheck-mode-hook #'flycheck-posframe-mode))
-#+END_SRC
 
-** Bindings
-
-Make it easy to set the category for TODOs in the agenda.
-#+BEGIN_SRC emacs-lisp
 (after! org-agenda
   (map! :map org-agenda-mode-map
         "C-c C-c" 'ragone/agenda-set-category))
@@ -76,10 +51,6 @@ Make it easy to set the category for TODOs in the agenda.
   (map! :map calendar-mode-map
         "e" 'exco-calendar-show-day))
 
-#+END_SRC
-
-Create some keybinding for the dashboard and easy access to the most used "apps"
-#+BEGIN_SRC emacs-lisp
 (map!
  "<home>" '+doom-dashboard/open
  :n "f" 'evil-avy-goto-char-timer
@@ -90,35 +61,18 @@ Create some keybinding for the dashboard and easy access to the most used "apps"
  :desc "Notes" :n "ad" 'ragone-deft-or-close
  :desc "Email" :n "ae" '=mu4e
  :desc "Agenda" :n "aa" 'ragone/agenda)
-#+END_SRC
 
-** Rust
-
-#+BEGIN_SRC emacs-lisp
 (add-hook 'rust-mode-hook 'cargo-minor-mode)
 (add-to-list 'auto-mode-alist '("\\.ron\\'" . rust-mode))
 (set-popup-rule! "^\\*Cargo" :ttl 0)
-#+END_SRC
 
-** Terminal Here
-
-#+BEGIN_SRC emacs-lisp
 ;; (map!
 ;;   "C-<f5>" #'terminal-here-launch
 ;;   "C-<f6>" #'terminal-here-project-launch)
 ;; (setq terminal-here-terminal-command '("termite"))
-#+END_SRC
 
-** Gif Screencast
-
-#+BEGIN_SRC emacs-lisp
 (map! "<f8>" 'gif-screencast-stop)
-#+END_SRC
 
-** Ledger
-
-Setup some default ledger reports to quickly access my budgets etc.
-#+BEGIN_SRC emacs-lisp
 (setq ledger-clear-whole-transactions t
       ledger-reconcile-default-commodity "DKK"
       ledger-reports
@@ -132,12 +86,7 @@ Setup some default ledger reports to quickly access my budgets etc.
         ("equity" "%(binary) --real [[ledger-mode-flags]] -f %(ledger-file) equity")
         ("income statement" "%(binary) --invert --real -S -T [[ledger-mode-flags]] -f %(ledger-file) bal ^income ^expenses -p \"this month\""))
       ledger-report-use-header-line nil)
-#+END_SRC
 
-** Deft
-
-Deft is for note keeping. I choose to use only file titles without a summary.
-#+BEGIN_SRC emacs-lisp
 (require 'deft)
 (setq deft-directory "~/Dropbox/org"
       deft-recursive t
@@ -162,43 +111,10 @@ Deft is for note keeping. I choose to use only file titles without a summary.
   (replace-regexp-in-string "\/" (concat " " (all-the-icons-faicon "arrow-right") " ") title))
 
 (advice-add #'deft-parse-title :filter-return #'ragone-parse-title)
-#+END_SRC
 
-** COMMENT EJira
-
-#+BEGIN_SRC emacs-lisp
-(use-package ejira
-  :load-path "/home/ragone/.doom.d/ejira"
-  :ensure    nil
-  :init
-  (setq jiralib2-url             "https://ezyvet.atlassian.net"
-        jiralib2-user-login-name "alex.ragone@ezyvet.com"
-        ejira-projects           '("EZ")
-        ejira-main-project       "EZ"
-        ejira-my-org-directory   "/home/ragone/Dropbox/org"
-        ejira-done-states        '("Done")
-        ejira-in-progress-states '("In Progress")
-        ejira-high-priorities    '("High" "Urgent")
-        ejira-low-priorities     '("Low" "Lowest")
-        ejira-sprint-field       'customfield_10007
-        ejira-epic-field         'customfield_10008
-        ejira-epic-summary-field 'summary))
-
-#+END_SRC
-
-** Dired
-
-Show file sizes in human readable numbers.
-#+BEGIN_SRC emacs-lisp
 (setq dired-listing-switches "-alh"
       dired-k-human-readable t)
-#+END_SRC
 
-** Doom Tweaks
-*** Dashboard
-
-I wanted to show a random quote on my dashboard when I start emacs.
-#+BEGIN_SRC emacs-lisp
 (defvar ragone-quotes-file "~/.doom.d/quotes.txt"
   "File to look for quotes")
 
@@ -268,13 +184,7 @@ Optionally get the NTH quote."
    "\n"
    (ragone/countdowns)
    "\n"))
-#+END_SRC
 
-#+RESULTS:
-: ragone-dashboard-widget-countdown
-
-Setup Doom dashboard
-#+BEGIN_SRC emacs-lisp
 (setq +doom-dashboard-banner-padding '(0 . 0)
       +doom-dashboard-menu-sections
       '(("Agenda"
@@ -304,11 +214,7 @@ Setup Doom dashboard
         doom-dashboard-widget-shortmenu
         ragone-dashboard-widget-countdown
         ragone-dashboard-widget-quotes))
-#+END_SRC
 
-*** Popups
-
-#+BEGIN_SRC emacs-lisp
 (setq +workspaces-on-switch-project-behavior nil)
 (set-popup-rules!
   '(("^\\*Warnings" :size 0.2 :ttl 3)))
@@ -316,17 +222,9 @@ Setup Doom dashboard
   (set-popup-rules! '(("^CAPTURE.*\\.org$" :size 0.2 :quit nil :select t)
                       ("^\\*Org Src"       :size 0.8 :quit nil :select t :autosave t :ttl nil)
                       ("^\\*Org Agenda" :side right :size 0.5 :select t :ttl nil))))
-#+END_SRC
 
-Fix issue with agenda fringes causing window-text-width to be incorrect
-#+BEGIN_SRC emacs-lisp
 (add-hook! 'org-agenda-mode-hook
   (set-window-fringes nil nil nil fringes-outside-margins))
-#+END_SRC
-
-*** expand-region
-
-#+BEGIN_SRC emacs-lisp
 
 ;;; Reasonable defaults
 
@@ -346,46 +244,13 @@ Fix issue with agenda fringes causing window-text-width to be incorrect
 (map! "C-="  #'er/expand-region
       "C--"  #'er/contract-region)
 
-#+END_SRC
-
-** Elfeed
-
-For RSS I use Elfeed. To fix images not rendering with spaces, I have removed
-the line-spacing in `elfeed-show-mode`.
-#+BEGIN_SRC emacs-lisp
 (add-hook! 'elfeed-show-mode-hook
   (setq line-spacing 0)
   (setq-local browse-url-browser-function 'eww-browse-url))
 
-#+END_SRC
-
-** COMMENT ezyVet
-
-Load the ezyVet databases.
-See `sql-connection-alist` for specifying the databases credentials.
-#+BEGIN_SRC emacs-lisp
-(load-file "~/.doom.d/ezyvetdb.el")
-#+END_SRC
-
-Reload databases
-#+BEGIN_SRC emacs-lisp
-(defun ragone/update-databases ()
-  (interactive)
-  (let ((default-directory "~/Developer/app-server/cookbooks/local/server/files/default/dev-scripts"))
-    (shell-command "php elimport.php > ~/.doom.d/ezyvetdb.el")
-    (load-file "~/.doom.d/ezyvetdb.el")))
-#+END_SRC
-
-** Confluence
-
-#+BEGIN_SRC emacs-lisp
 ;; (def-package! ox-confluence
 ;;   :load-path "~/.doom.d/private/ox-confluence.el")
-#+END_SRC
 
-** Functions
-
-#+BEGIN_SRC emacs-lisp
 (require 'restclient)
 (add-hook 'restclient-mode-hook
           (lambda ()
@@ -426,11 +291,7 @@ for the current buffer's file name, and the line number at point."
   (kill-new
    (format "%s:%d" (buffer-file-name) (save-restriction
                                         (widen) (line-number-at-pos)))))
-#+END_SRC
 
-Quickly copy a htmlized buffer to the clipboard
-Make sure to install `wkhtmltopdf` first.
-#+BEGIN_SRC emacs-lisp
 (defun ragone-htmlize-to-clipboard (html)
   "Copy HTML to clipboard. "
   (with-temp-buffer
@@ -453,10 +314,7 @@ Make sure to install `wkhtmltopdf` first.
       (ragone-htmlize-to-clipboard
        (htmlize-region-for-paste start end))
       (set-face-background 'region region-background))))
-#+END_SRC
 
-Easily create a merge request using GitLabs API.
-#+BEGIN_SRC emacs-lisp
 (defun ragone/create-merge-request ()
   "Visit the current branch's MR on Gitlab."
   (interactive)
@@ -498,13 +356,7 @@ Easily create a merge request using GitLabs API.
     (dotimes (k 100)
       (sit-for 0.01)
       (progress-reporter-update loader k))))
-#+END_SRC
 
-#+RESULTS:
-: ragone/create-merge-request
-
-A couple of functions to open/close the deft buffer with the same keybinding.
-#+BEGIN_SRC emacs-lisp
 (defun ragone-kill-deft-buffers ()
   "Toggle Deft mode."
   (interactive)
@@ -526,13 +378,7 @@ A couple of functions to open/close the deft buffer with the same keybinding.
   "My org agenda."
   (interactive)
   (org-agenda nil "n"))
-#+END_SRC
 
-#+RESULTS:
-: ragone/agenda
-
-Convert org timeclock to HH:MM notation
-#+BEGIN_SRC emacs-lisp
 (defun ragone/time--to-seconds (timestr)
   "Convert HH:MM notation to seconds"
   (let* ((matchindex (string-match "\\([0-9]+\\):\\([0-9]+\\)" timestr))
@@ -575,22 +421,14 @@ Convert org timeclock to HH:MM notation
     (sql-connect connect-name)))
 
 (setq sql-mysql-options '("-A"))
-#+END_SRC
 
-Compare my init file to doom init file
-#+BEGIN_SRC emacs-lisp
 (defun ragone/ediff-dotfile-and-template ()
   "ediff the current `dotfile' with the template"
   (interactive)
   (ediff-files
    "~/.doom.d/init.el"
    "~/.emacs.d/init.example.el"))
-#+END_SRC
 
-** IRC
-
-Setup IRC.
-#+BEGIN_SRC emacs-lisp
 (set-irc-server! "chat.freenode.net"
                  `(:tls t
                    :nick "ragoneio"
@@ -599,12 +437,7 @@ Setup IRC.
                    :sasl-password (lambda (server)
                                     (ragone/fetch-password :host "chat.freenode.net"))
                    :channels ()))
-#+END_SRC
 
-** Magit
-
-Add my own function to the Magit popup.
-#+BEGIN_SRC emacs-lisp
 ;; (after! magit
 ;;   (transient-append-suffix 'magit-log nil
 ;;     '("-m" "Omit merge commits" "--no-merges")))
@@ -624,12 +457,6 @@ Add my own function to the Magit popup.
 ;; Fix dropdown arrows
 (add-hook! 'magit-mode-hook
   (setq left-fringe-width 15))
-#+END_SRC
-
-** mu4e
-
-Setup work email account and specific settings associated with this account.
-#+BEGIN_SRC emacs-lisp
 
 (def-package! mu4e)
 
@@ -659,20 +486,12 @@ Setup work email account and specific settings associated with this account.
                       (mu4e-get-mail-command            . "mbsync -c ~/.doom.d/mu4e/.mbsyncrc work"))
                     t)
 
-#+END_SRC
-
-Outlook style citation.
-#+BEGIN_SRC emacs-lisp
 (setq message-yank-prefix ""
       message-yank-cited-prefix ""
       message-yank-empty-prefix ""
       message-citation-line-format "\n\n-----------------------\nOn %a, %b %d %Y, %N wrote:\n"
       message-citation-line-function 'message-insert-formatted-citation-line
       mu4e-update-interval 300) ; every 5 minutes
-#+END_SRC
-
-Make it easy to `org-capture` an email and mark it for trash.
-#+BEGIN_SRC emacs-lisp
 
 (defun ragone/capture-mail (buffer)
   "Captures the email as todo"
@@ -735,12 +554,6 @@ Make it easy to `org-capture` an email and mark it for trash.
           (:from       . 25)
           (:subject    . nil))))
 
-#+END_SRC
-
-A little haxy here as I am overriding the function to insert my own signature in
-style of outlook.
-TODO: Need to make it work with Gmail.
-#+BEGIN_SRC emacs-lisp
 (eval-after-load "org-mu4e"
   '(defun org~mu4e-mime-multipart (plain html &optional images)
      "Create a multipart/alternative with text/plain and text/html alternatives.
@@ -784,34 +597,20 @@ and images in a multipart/related part."
 (defun ragone/mu4e-delete-citation ()
   (delete-region (point-min) (point-max)))
 ;; (add-hook 'mail-citation-hook #'ragone/mu4e-delete-citation)
-#+END_SRC
 
-** Theme
-
-Setup theme. I like `gruvbox-dark-soft`.
-#+BEGIN_SRC emacs-lisp
 (require 'gruvbox-theme)
 (setq doom-theme 'gruvbox-dark-soft
       doom-big-font (font-spec :size 30 :family "DejaVu Sans Mono")
       doom-modeline-height 40
       doom-font (font-spec :family "Fira Code Light"))
-#+END_SRC
-Input Mono Nerd Font
 
-Spice up the view of the agenda to easier differentiate between headers and
-todos.
-#+BEGIN_SRC emacs-lisp
 (add-hook! 'doom-load-theme-hook
   (set-face-attribute 'org-agenda-structure nil :inherit 'default :height 1.50)
   (set-face-attribute 'org-agenda-date-weekend nil :foreground "#504945" :height 1.00 :weight 'light)
   (set-face-attribute 'org-agenda-calendar-event nil :foreground "#fabd2f")
   (set-face-attribute 'org-agenda-date nil :foreground "#d5c4a1" :inherit 'default :height 1.25)
   (set-face-attribute 'org-agenda-date-today nil :slant 'normal :weight 'bold :height 1.25))
-#+END_SRC
 
-** Org
-
-#+BEGIN_SRC emacs-lisp
 (require 'org-clock-convenience)
 
 (defun ragone-refile-targets ()
@@ -964,12 +763,6 @@ todos.
     org-habit-completed-glyph ?✓
     org-habit-show-habits-only-for-today nil))
 
-#+END_SRC
-
-#+RESULTS:
-
-Setup some agenda keybindings.
-#+BEGIN_SRC emacs-lisp
 (defun ragone/org-agenda-mode-fn ()
   (define-key org-agenda-mode-map
     (kbd "<S-up>") #'org-clock-convenience-timestamp-up)
@@ -996,11 +789,7 @@ Setup some agenda keybindings.
 ;;      'agenda)))
 ;; (add-hook 'org-agenda-mode-hook #'ragone/update-mu4e-tags)
 ;; (add-hook 'mu4e-update-pre-hook (lambda () (setq ragone-org-mu4e-updated nil)))
-#+END_SRC
 
-** Weather
-
-#+BEGIN_SRC emacs-lisp
 ;; (require 'url)
 ;; (require 'xterm-color)
 
@@ -1023,12 +812,7 @@ Setup some agenda keybindings.
 ;;     (if (string-match "ERROR" raw-string)
 ;;         ""
 ;;       (xterm-color-filter raw-string))))
-  #+END_SRC
 
-** PHP
-
-Basic PHP setup.
-#+BEGIN_SRC emacs-lisp
 (require 'phpcbf)
 (require 'php-cs-fixer)
 
@@ -1044,19 +828,10 @@ Basic PHP setup.
         "concat_space")
       php-cs-fixer-rules-level-part-options
       '("@PSR2" "@Symfony"))
-#+END_SRC
 
-** Shell
-
-Use shell PATH.
-#+BEGIN_SRC emacs-lisp
 ;; (setq exec-path-from-shell-arguments '("-i"))
 ;; (exec-path-from-shell-initialize)
-#+END_SRC
 
-** Blog
-
-#+BEGIN_SRC emacs-lisp
 (require 'org-static-blog)
 (require 'org)
 (setq org-static-blog-publish-title "ragone.io"
@@ -1127,14 +902,7 @@ Use shell PATH.
    "<a href=\"" (org-static-blog-get-url post-filename) "\">" (org-static-blog-get-title post-filename) "</a>" "</h2>\n"
    (org-style-tags post-filename) "</div>"
    "<div class=\"post-date\">" (format-time-string "<%Y-%m-%d %a>" (org-static-blog-get-date post-filename)) "</div>"))
-#+END_SRC
 
-#+RESULTS:
-: org-static-blog-get-post-summary
-
-** BH
-
-#+BEGIN_SRC emacs-lisp
 (defun bh/is-project-p ()
   "Any task with a todo keyword subtask"
   (save-restriction
@@ -1516,7 +1284,3 @@ Skip project and sub-project tasks, habits, and loose non-project tasks."
     (if (not (bh/is-project-p))
         nil
       next-headline)))
-#+END_SRC
-
-#+RESULTS:
-: bh/skip-projects
