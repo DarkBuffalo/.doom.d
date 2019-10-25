@@ -29,6 +29,7 @@
 (package! language-detection)
 (package! terminal-here)
 (package! expand-region)
+(package! org-analyzer)
 (package! xterm-color)
 (package! package-lint)
 (package! flycheck-package)
@@ -38,7 +39,12 @@
 (package! magit-diff-flycheck)
 (package! deadgrep)
 (package! flycheck-posframe)
-(package! emojify)
+(package! prettier-js)
+(package! cheat-sh)
+(package! link)
+(package! downplay-mode)
+(package! google-translate)
+(package! helm)
 
 (package! evil-matchit :recipe (:fetcher github :repo "redguardtoo/evil-matchit" :commit "7d65b4167b1f0086c2b42b3aec805e47a0d355c4"))
 

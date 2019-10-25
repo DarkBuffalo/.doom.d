@@ -7,11 +7,17 @@
 (require 'vagrant-tramp)
 (require 'exec-path-from-shell)
 
+(load! "~/Developer/ts-react-redux-yasnippets/ts-react-redux-yasnippets.el")
+(setq counsel-search-engine 'google)
 (load! "~/Developer/asx/asx.el")
+(set-popup-rules!
+  '(("^\\*AskStackExchange" :select nil :quit t :size 0.5 :ttl 0)))
 (setq browse-url-browser-function 'eww-browse-url)
-(setq js-indent-level 2)
-(load! "~/Developer/log-this/log-this.el")
-(add-hook 'after-init-hook #'global-emojify-mode)
+(setq js-indent-level 2
+      web-mode-code-indent-offset 2
+      web-mode-css-indent-offset 2
+      typescript-indent-level 2)
+;;(add-hook 'after-init-hook #'global-emojify-mode)
 (with-eval-after-load 'gif-screencast
   (setq gif-screencast-args '("-x") ;; To shut up the shutter sound of `screencapture' (see `gif-screencast-command').
         gif-screencast-cropping-program "foo"))
@@ -39,9 +45,11 @@
 (require 'atomic-chrome)
 (atomic-chrome-start-server)
 
-(def-package! flycheck-posframe
-  :after flycheck
-  :config (add-hook 'flycheck-mode-hook #'flycheck-posframe-mode))
+(setq treemacs-no-png-images t)
+
+;; (def-package! flycheck-posframe
+;;   :after flycheck
+;;   :config (add-hook 'flycheck-mode-hook #'flycheck-posframe-mode))
 
 (after! org-agenda
   (map! :map org-agenda-mode-map
@@ -224,6 +232,7 @@ Optionally get the NTH quote."
                       ("^\\*Org Agenda" :side right :size 0.5 :select t :ttl nil))))
 
 (add-hook! 'org-agenda-mode-hook
+  (org-agenda-filter-apply (push "-personal" org-agenda-category-filter) 'category)
   (set-window-fringes nil nil nil fringes-outside-margins))
 
 ;;; Reasonable defaults
@@ -231,6 +240,7 @@ Optionally get the NTH quote."
 (setq shift-select-mode t)
 (delete-selection-mode +1)
 
+(require 'expand-region)
 (def-package! expand-region
   :commands (er/contract-region er/mark-symbol er/mark-word)
   :config
@@ -240,9 +250,8 @@ Optionally get the NTH quote."
       (er/contract-region 0)))
   (advice-add #'evil-escape :before #'doom*quit-expand-region)
   (advice-add #'doom/escape :before #'doom*quit-expand-region))
-
-(map! "C-="  #'er/expand-region
-      "C--"  #'er/contract-region)
+(map! :nv "C-="  #'er/expand-region
+      :nv "C--"  #'er/contract-region)
 
 (add-hook! 'elfeed-show-mode-hook
   (setq line-spacing 0)
@@ -460,6 +469,11 @@ for the current buffer's file name, and the line number at point."
 
 (def-package! mu4e)
 
+; iCal
+(require 'mu4e-icalendar)
+(mu4e-icalendar-setup)
+(setq mu4e-icalendar-trash-after-reply t)
+
 (set-email-account! "ragonedk@gmail.com"
                     '((mu4e-sent-folder                 . "/gmail/Sent")
                       (mu4e-trash-folder                . "/gmail/Trash")
@@ -472,7 +486,7 @@ for the current buffer's file name, and the line number at point."
                       (smtpmail-stream-type             . starttls)
                       (mu4e-get-mail-command            . "mbsync -c ~/.doom.d/mu4e/.mbsyncrc gmail")))
 
-(set-email-account! "alex.ragone@ezyvet.com"
+(set-email-account! "ara@planday.com"
                     '((mu4e-sent-folder                 . "/planday/Sent")
                       (mu4e-trash-folder                . "/planday/Trash")
                       (mu4e-drafts-folder               . "/planday/Drafts")
@@ -546,13 +560,18 @@ for the current buffer's file name, and the line number at point."
 
   (setq mu4e-headers-include-related nil
         mu4e-headers-attach-mark '("a" . "@")
-        ;; mu4e-view-use-gnus t
+        ;;mu4e-view-use-gnus t
         mu4e-confirm-quit nil
         mu4e-headers-fields
         '((:flags      . 4)
           (:human-date . 12)
           (:from       . 25)
           (:subject    . nil))))
+
+;;(require 'mu4e-icalendar)
+;;(mu4e-icalendar-setup)
+;; Optional
+;;(setq mu4e-icalendar-trash-after-reply t)
 
 (eval-after-load "org-mu4e"
   '(defun org~mu4e-mime-multipart (plain html &optional images)
@@ -641,11 +660,15 @@ and images in a multipart/related part."
             (char-to-string (org-bullets-level-char level))
             " ")))
 
+(add-hook 'org-mode-hook 'org-indent-mode)
+
 (after! org
   (setq
    org-link-file-path-type 'relative
    org-agenda-log-mode-items '(closed state)
    org-src-fontify-natively t
+   org-journal-dir "~/Dropbox/org/journal/"
+   org-journal-file-type 'weekly
    org-agenda-show-inherited-tags nil
    org-log-done 'time
    org-agenda-show-future-repeats 'next
@@ -707,6 +730,7 @@ and images in a multipart/related part."
       (file+headline +org-capture-notes-file "Inbox")
       "* NOTE %u %?\n%i" :prepend t :kill-buffer t))
    org-agenda-files (list org-directory)
+   ;;org-agenda-file-regexp "\\`[^.].*\\.org'\\|[0-9]+$"
    ragone-org-deadline-prefix "%2i%-12(ragone-agenda-prefix)"
    org-agenda-custom-commands
    '(("n" "Agenda"
@@ -1284,3 +1308,22 @@ Skip project and sub-project tasks, habits, and loose non-project tasks."
     (if (not (bh/is-project-p))
         nil
       next-headline)))
+
+(add-hook 'js2-mode-hook 'prettier-js-mode)
+(add-hook 'typescript-mode-hook 'prettier-js-mode)
+(require 'lsp-ui)
+(setq lsp-ui-peek-fontify 'always)
+(mapcar (lambda (f) (set-face-foreground f "dim gray"))
+        '(lsp-ui-sideline-code-action lsp-ui-sideline-current-symbol lsp-ui-sideline-symbol lsp-ui-sideline-symbol-info))
+
+(add-to-list 'org-src-lang-modes '("react" . web))
+
+; Web mode fix
+(defun enable-minor-mode (my-pair)
+  "Enable minor mode if filename match the regexp.  MY-PAIR is a cons cell (regexp . minor-mode)."
+  (if (buffer-file-name)
+      (if (string-match (car my-pair) buffer-file-name)
+          (funcall (cdr my-pair)))))
+(add-hook 'web-mode-hook #'(lambda ()
+                            (enable-minor-mode
+                             '("\\.tsx?\\'" . prettier-js-mode))))
