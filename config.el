@@ -1,31 +1,63 @@
 (require 'tldr)
-(require 'sx)
 (require 'request)
 (require 'ov)
-(require 'ox-clip)
-(require 'hackernews)
-(require 'vagrant-tramp)
-(require 'exec-path-from-shell)
+(require 'ob-typescript)
+(require 'atomic-chrome)
+
+(atomic-chrome-start-server)
+(map! :map atomic-chrome-edit-mode-map
+      :n "C-x C-s" #'+format/buffer)
+
+(eval-after-load 'cider
+  #'emidje-setup)
+
+(setq frame-title-format '("%b – Emacs")
+      doom-fallback-buffer-name "*emacs*"
+      +doom-dashboard-name "*dashboard*")
+
+(add-to-list '+format-on-save-enabled-modes 'clojure-mode t)
+(add-to-list '+format-on-save-enabled-modes 'clojurescript-mode t)
+(defun vterm--rename-buffer-as-title (title)
+  (rename-buffer (format "vterm: %s" (projectile-project-name)) t))
+(add-hook 'vterm-set-title-functions 'vterm--rename-buffer-as-title)
 
 (load! "~/Developer/ts-react-redux-yasnippets/ts-react-redux-yasnippets.el")
 (setq counsel-search-engine 'google)
 (load! "~/Developer/asx/asx.el")
+(load! "~/.doom.d/ra-emacs-lsp.el")
+(load! "~/.doom.d/teletype.el")
+(load! "~/.doom.d/jac.el")
 (set-popup-rules!
-  '(("^\\*AskStackExchange" :select nil :quit t :size 0.5 :ttl 0)))
+  '(("^\\*AskStackExchange" :ignore t :select nil :quit t :size 0.5 :ttl 0)))
 (setq browse-url-browser-function 'eww-browse-url)
 (setq js-indent-level 2
       web-mode-code-indent-offset 2
       web-mode-css-indent-offset 2
       typescript-indent-level 2)
 ;;(add-hook 'after-init-hook #'global-emojify-mode)
-(with-eval-after-load 'gif-screencast
-  (setq gif-screencast-args '("-x") ;; To shut up the shutter sound of `screencapture' (see `gif-screencast-command').
-        gif-screencast-cropping-program "foo"))
 
-(add-to-list 'tramp-default-proxies-alist
-             '(nil "\\`root\\'" "/ssh:%h:"))
-(add-to-list 'tramp-default-proxies-alist
-             '((regexp-quote (system-name)) nil nil))
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((typescript . t)))
+
+;; Nov
+(add-to-list 'auto-mode-alist '("\\.epub\\'" . nov-mode))
+(setq nov-text-width 80)
+
+(map! "C-K"    #'drag-stuff-up
+      "C-J"  #'drag-stuff-down
+      "C-H"  #'drag-stuff-left
+      "C-L" #'drag-stuff-right)
+
+(with-eval-after-load 'gif-screencast
+  (setq gif-screencast-args '("-x"))) ;; To shut up the shutter sound of `screencapture' (see `gif-screencast-command').
+
+;;(debug-on-variable-change 'vc-handled-backends)
+
+;; (add-to-list 'tramp-default-proxies-alist
+;;              '(nil "\\`root\\'" "/ssh:%h:"))
+;; (add-to-list 'tramp-default-proxies-alist
+;;              '((regexp-quote (system-name)) nil nil))
 
 ;; Fix for PDF-tools on MacOS
 (setenv "PKG_CONFIG_PATH" "/usr/local/lib/pkgconfig:/usr/local/Cellar/libffi/3.2.1/lib/pkgconfig")
@@ -42,12 +74,9 @@
             secret))
       (error "Password not found for %S" params))))
 
-(require 'atomic-chrome)
-(atomic-chrome-start-server)
-
 (setq treemacs-no-png-images t)
 
-;; (def-package! flycheck-posframe
+;; (use-package! flycheck-posframe
 ;;   :after flycheck
 ;;   :config (add-hook 'flycheck-mode-hook #'flycheck-posframe-mode))
 
@@ -70,9 +99,11 @@
  :desc "Email" :n "ae" '=mu4e
  :desc "Agenda" :n "aa" 'ragone/agenda)
 
-(add-hook 'rust-mode-hook 'cargo-minor-mode)
-(add-to-list 'auto-mode-alist '("\\.ron\\'" . rust-mode))
-(set-popup-rule! "^\\*Cargo" :ttl 0)
+(setq rustic-lsp-server 'rust-analyzer)
+(setq lsp-rust-server 'rust-analyzer)
+;; (add-hook 'rust-mode-hook 'cargo-minor-mode)
+;; (add-to-list 'auto-mode-alist '("\\.ron\\'" . rust-mode))
+;; (set-popup-rule! "^\\*Cargo" :ttl 0)
 
 ;; (map!
 ;;   "C-<f5>" #'terminal-here-launch
@@ -123,6 +154,48 @@
 (setq dired-listing-switches "-alh"
       dired-k-human-readable t)
 
+(defvar ragone-wttrin-format 0)
+
+(defun wttrin-fetch-raw-string ()
+  "Get the weather information based on your QUERY."
+  (let ((url-request-extra-headers '(("Accept-Language" . "en-US,en;q=0.8,zh-CN;q=0.6,zh;q=0.4")
+                                     ("User-Agent" . "curl"))))
+    (ignore-errors
+      (with-current-buffer (url-retrieve-synchronously (format "http://wttr.in/Copenhagen?force-ansi=true&%dFQn" ragone-wttrin-format) t nil 5)
+        (goto-char (point-min))
+        (re-search-forward "^$")
+        (delete-region (point-min) (point))
+        (decode-coding-string (buffer-string) 'utf-8)))))
+
+(defun ragone-wttrin-next ()
+  (interactive)
+  (setq ragone-wttrin-format (mod (+ ragone-wttrin-format 1) 4))
+  (+doom-dashboard/open (selected-frame)))
+
+(defun ragone-wttrin-prev ()
+  (interactive)
+  (setq ragone-wttrin-format (mod (- ragone-wttrin-format 1) 4))
+  (+doom-dashboard/open (selected-frame)))
+
+(define-key! +doom-dashboard-mode-map
+  [remap evil-backward-char] #'ragone-wttrin-prev
+  [remap evil-forward-char] #'ragone-wttrin-next)
+
+(defun wttrin-exit ()
+  (interactive)
+  (quit-window t))
+
+(defun ragone-dashboard-widget-wttrin ()
+  "Query weather of CITY-NAME via wttrin, and display the result in new buffer."
+  (let* ((raw-string (or (wttrin-fetch-raw-string) ""))
+         (strings (split-string (xterm-color-filter raw-string) "\n"))
+         (max-length (max 30 (seq-max (mapcar #'length (seq-take strings 5))))))
+    (insert (mapconcat (lambda (s) (ragone-center-format s max-length)) strings "\n"))))
+
+(defun ragone-center-format (s max-length)
+  "Center and format S."
+  (ragone-center (format (format "%%-%ds" max-length) s)))
+
 (defvar ragone-quotes-file "~/.doom.d/quotes.txt"
   "File to look for quotes")
 
@@ -165,7 +238,7 @@ Optionally get the NTH quote."
                        (format format-string
                                (all-the-icons-faicon "flag" :v-adjust -0.02)
                                title
-                               days-to-event))
+                               (- days-to-event)))
                       'face 'font-lock-comment-face)))))
 
 (defun ragone/countdowns ()
@@ -220,6 +293,7 @@ Optionally get the NTH quote."
       +doom-dashboard-functions
       '(doom-dashboard-widget-banner
         doom-dashboard-widget-shortmenu
+        ragone-dashboard-widget-wttrin
         ragone-dashboard-widget-countdown
         ragone-dashboard-widget-quotes))
 
@@ -241,7 +315,7 @@ Optionally get the NTH quote."
 (delete-selection-mode +1)
 
 (require 'expand-region)
-(def-package! expand-region
+(use-package! expand-region
   :commands (er/contract-region er/mark-symbol er/mark-word)
   :config
   (defun doom*quit-expand-region ()
@@ -257,7 +331,7 @@ Optionally get the NTH quote."
   (setq line-spacing 0)
   (setq-local browse-url-browser-function 'eww-browse-url))
 
-;; (def-package! ox-confluence
+;; (use-package! ox-confluence
 ;;   :load-path "~/.doom.d/private/ox-confluence.el")
 
 (require 'restclient)
@@ -298,8 +372,8 @@ Optionally get the NTH quote."
 for the current buffer's file name, and the line number at point."
   (interactive)
   (kill-new
-   (format "%s:%d" (buffer-file-name) (save-restriction
-                                        (widen) (line-number-at-pos)))))
+   (format "%s:%d" (file-relative-name buffer-file-name (projectile-project-root)) (save-restriction
+                                                                                     (widen) (line-number-at-pos)))))
 
 (defun ragone-htmlize-to-clipboard (html)
   "Copy HTML to clipboard. "
@@ -455,19 +529,19 @@ for the current buffer's file name, and the line number at point."
 ;;   (message "%S" args)
 ;;   args)
 
-(setq vc-handled-backends nil)
-(when (string= system-type "darwin")
-  (setq dired-use-ls-dired nil))
-(after! magit
-  ;; (advice-add #'forge--glab-post :filter-args #'ragone-glab-post)
-  ;; Excluding index.js because of stack overflow error
-  (setq magit-todos-exclude-globs '("index.js")))
+;; (setq vc-handled-backends nil)
+;; (when (string= system-type "darwin")
+;;   (setq dired-use-ls-dired nil))
+;; (after! magit
+;;   ;; (advice-add #'forge--glab-post :filter-args #'ragone-glab-post)
+;;   ;; Excluding index.js because of stack overflow error
+;;   (setq magit-todos-exclude-globs '("index.js")))
 
-;; Fix dropdown arrows
+;; ;; Fix dropdown arrows
 (add-hook! 'magit-mode-hook
-  (setq left-fringe-width 15))
+  (setq-local left-fringe-width 15))
 
-(def-package! mu4e)
+(use-package! mu4e)
 
 ; iCal
 (require 'mu4e-icalendar)
@@ -535,7 +609,7 @@ for the current buffer's file name, and the line number at point."
   (org-mu4e-compose-org-mode)
   (no-auto-fill))
 
-(def-package! org-mu4e
+(use-package! org-mu4e
   :hook ((org-mode mu4e-compose) . ragone/org-mu4e-compose))
 
 (after! mu4e
@@ -617,8 +691,7 @@ and images in a multipart/related part."
   (delete-region (point-min) (point-max)))
 ;; (add-hook 'mail-citation-hook #'ragone/mu4e-delete-citation)
 
-(require 'gruvbox-theme)
-(setq doom-theme 'gruvbox-dark-soft
+(setq doom-theme 'doom-gruvbox
       doom-big-font (font-spec :size 30 :family "DejaVu Sans Mono")
       doom-modeline-height 40
       doom-font (font-spec :family "Fira Code Light"))
@@ -814,48 +887,6 @@ and images in a multipart/related part."
 ;; (add-hook 'org-agenda-mode-hook #'ragone/update-mu4e-tags)
 ;; (add-hook 'mu4e-update-pre-hook (lambda () (setq ragone-org-mu4e-updated nil)))
 
-;; (require 'url)
-;; (require 'xterm-color)
-
-;; (defun wttrin-fetch (query)
-;;   "Get the weather information based on your QUERY."
-;;   (let ((url-request-extra-headers '(("User-Agent" . "curl")
-;;                                      ("Accept-Language" . "en-US,en"))))
-;;     (with-current-buffer
-;;         (url-retrieve-synchronously
-;;          (concat "http://wttr.in/" query "?0Q")
-;;          (lambda (status) (switch-to-buffer (current-buffer))))
-;;       (goto-char (point-min))
-;;       (re-search-forward "^$")
-;;       (delete-region (point) (point-min))
-;;       (decode-coding-string (buffer-string) 'utf-8))))
-
-;; (defun wttrin (city)
-;;   "Query weather of CITY via wttrin"
-;;   (let ((raw-string (wttrin-fetch city)))
-;;     (if (string-match "ERROR" raw-string)
-;;         ""
-;;       (xterm-color-filter raw-string))))
-
-(require 'phpcbf)
-(require 'php-cs-fixer)
-
-(custom-set-variables
- '(phpcbf-standard "PSR2"))
-
-(setq flycheck-phpcs-standard "PSR2,PEAR")
-
-(setq php-cs-fixer-rules-fixer-part-options
-      '("no_multiline_whitespace_before_semicolons"
-        "no_unused_imports"
-        "ordered_imports"
-        "concat_space")
-      php-cs-fixer-rules-level-part-options
-      '("@PSR2" "@Symfony"))
-
-;; (setq exec-path-from-shell-arguments '("-i"))
-;; (exec-path-from-shell-initialize)
-
 (require 'org-static-blog)
 (require 'org)
 (setq org-static-blog-publish-title "ragone.io"
@@ -916,7 +947,6 @@ and images in a multipart/related part."
                       (funcall oldfun)
                       (setq org-html-htmlize-output-type 'inline-css)))
 
-; (require 'auto-complete)
 (defun org-static-blog-post-postamble (post-filename)
   "")
 
@@ -1313,8 +1343,8 @@ Skip project and sub-project tasks, habits, and loose non-project tasks."
 (add-hook 'typescript-mode-hook 'prettier-js-mode)
 (require 'lsp-ui)
 (setq lsp-ui-peek-fontify 'always)
-(mapcar (lambda (f) (set-face-foreground f "dim gray"))
-        '(lsp-ui-sideline-code-action lsp-ui-sideline-current-symbol lsp-ui-sideline-symbol lsp-ui-sideline-symbol-info))
+(mapc (lambda (f) (set-face-foreground f "dim gray"))
+      '(lsp-ui-sideline-code-action lsp-ui-sideline-current-symbol lsp-ui-sideline-symbol lsp-ui-sideline-symbol-info))
 
 (add-to-list 'org-src-lang-modes '("react" . web))
 
